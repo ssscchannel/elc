@@ -11,7 +11,6 @@
             --primary-dark: #0b1016;
             --neon-blue: #00f3ff;
             --neon-purple: #bc13fe;
-            /* V7 改版：高能光譜漸層 */
             --energy-gradient: linear-gradient(90deg, #005bea 0%, #00c6fb 50%, #ffffff 100%);
             --header-h: 60px;
         }
@@ -32,6 +31,8 @@
             flex-direction: column;
             color: #fff;
             cursor: crosshair; 
+            /* ★ 關鍵優化：告訴瀏覽器這裡只有觸控操作，優化 scrolling */
+            touch-action: none; 
         }
 
         /* --- 2. 背景特效層 --- */
@@ -39,6 +40,8 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(to bottom, rgba(10,15,30,0.85), rgba(0,0,0,0.95));
             z-index: 1;
+            /* ★ 優化：使用 GPU 加速合成 */
+            transform: translateZ(0);
         }
         
         #bg-lightning-canvas {
@@ -57,6 +60,7 @@
             pointer-events: none;
             mix-blend-mode: overlay;
             transition: opacity 0.05s ease-out; 
+            will-change: opacity; /* ★ 優化：提示瀏覽器 */
         }
 
         /* --- 3. 標題列 --- */
@@ -93,6 +97,8 @@
             align-items: center;
             gap: 35px;
             padding-top: 40px;
+            /* ★ 優化：避免 UI 重繪影響 Canvas */
+            transform: translateZ(0); 
         }
 
         .hint-text {
@@ -121,12 +127,14 @@
             border-radius: 6px; 
             overflow: hidden;
             cursor: grab;
-            transition: transform 0.05s linear;
+            transition: transform 0.05s linear; /* 極短 transition */
             display: flex;
             align-items: center;
             justify-content: flex-start; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.8);
             backdrop-filter: blur(8px);
+            /* ★ 優化：將按鈕提升為合成層，避免震動時造成全頁重繪 */
+            will-change: transform; 
         }
 
         .capacitor-btn::before {
@@ -137,25 +145,26 @@
             z-index: 10;
         }
 
-        /* 能量條：由左至右 + 漸層 */
+        /* 能量條 */
         .plasma-fill {
             position: absolute;
             top: 0; left: 0;       
             width: 0%;             
             height: 100%;          
             background: var(--energy-gradient);
-            box-shadow: 0 0 40px var(--neon-blue);
+            box-shadow: 0 0 20px var(--neon-blue); /* 手機版降低陰影半徑 */
             z-index: 1;
             transition: width 0.05s linear; 
             filter: brightness(1.1);
             border-right: 3px solid #fff;
+            will-change: width;
         }
         
         /* 過載狀態 */
         .capacitor-btn.overload .plasma-fill {
             background: #fff;
-            filter: brightness(2) drop-shadow(0 0 20px #fff);
-            width: 100% !important; /* 強制全滿 */
+            filter: brightness(2); /* 移除 drop-shadow 減輕負擔 */
+            width: 100% !important;
         }
 
         .btn-content {
@@ -184,6 +193,7 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: white; z-index: 999; opacity: 0; pointer-events: none;
             transition: opacity 0.5s ease-out; 
+            will-change: opacity;
         }
 
         @media (max-width: 600px) {
@@ -202,7 +212,6 @@
     <div id="storm-bg"></div>
     <canvas id="bg-lightning-canvas"></canvas>
     <div id="lightning-flash"></div>
-
     <canvas id="canvas-layer"></canvas>
 
     <div id="ui-container">
@@ -213,7 +222,7 @@
             <div class="voltage-readout">00%</div>
             <div class="btn-content">
                 <span class="btn-title">PROJECT A</span>
-                <span class="btn-desc">靜電感應</span>
+                <span class="btn-desc">靜電感應現象模擬</span>
             </div>
         </div>
 
@@ -222,7 +231,7 @@
             <div class="voltage-readout">00%</div>
             <div class="btn-content">
                 <span class="btn-title">PROJECT B</span>
-                <span class="btn-desc">感應起電</span>
+                <span class="btn-desc">感應起電操作程序</span>
             </div>
         </div>
 
@@ -231,7 +240,7 @@
             <div class="voltage-readout">00%</div>
             <div class="btn-content">
                 <span class="btn-title">PROJECT C</span>
-                <span class="btn-desc">接觸起電</span>
+                <span class="btn-desc">接觸起電與電荷分配</span>
             </div>
         </div>
     </div>
@@ -240,18 +249,19 @@
 
     <script>
         // =========================================================
-        // 晟自然 - 雷電實驗室 V8 (Perfect Feel & Instant Jump)
+        // 晟自然 - 雷電實驗室 V9 (Mobile Performance Optimization)
         // =========================================================
 
         const CONFIG = {
-            // ★ 手感調教重點：更慢的充能，更慢的耗能，更有重量感
-            frictionGain: 0.08,      // 摩擦獲得能量 (調低，變難充)
-            baseDecay: 0.05,         // 基礎自然流失 (調低，電量較持久)
-            maxDecay: 0.4,           // 最大流失速度 (調低，防止瞬間歸零)
-            
+            frictionGain: 0.18,      
+            baseDecay: 0.08,         
+            maxDecay: 0.4,           
             arcThreshold: 3,         
             maxCharge: 100
         };
+        
+        // ★ 優化：判斷是否為移動裝置 (螢幕小於 768px 視為手機)
+        const IS_MOBILE = window.innerWidth < 768;
 
         const buttons = [
             { 
@@ -259,51 +269,73 @@
                 el: document.getElementById('btn-A'), 
                 fillEl: document.getElementById('btn-A').querySelector('.plasma-fill'),
                 textEl: document.getElementById('btn-A').querySelector('.voltage-readout'),
-                shake: 0 
+                shake: 0,
+                // ★ 優化：緩存邊界，避免每次 elementFromPoint
+                rect: { left:0, right:0, top:0, bottom:0 } 
             },
             { 
                 id: 'btn-B', charge: 0, 
                 el: document.getElementById('btn-B'), 
                 fillEl: document.getElementById('btn-B').querySelector('.plasma-fill'),
                 textEl: document.getElementById('btn-B').querySelector('.voltage-readout'),
-                shake: 0 
+                shake: 0,
+                rect: { left:0, right:0, top:0, bottom:0 }
             },
             { 
                 id: 'btn-C', charge: 0, 
                 el: document.getElementById('btn-C'), 
                 fillEl: document.getElementById('btn-C').querySelector('.plasma-fill'),
                 textEl: document.getElementById('btn-C').querySelector('.voltage-readout'),
-                shake: 0 
+                shake: 0,
+                rect: { left:0, right:0, top:0, bottom:0 }
             }
         ];
 
         let state = {
             lastX: 0, lastY: 0,
-            isRedirecting: false, // 全域鎖定標記
+            isRedirecting: false,
             frame: 0
         };
 
         const canvas = document.getElementById('canvas-layer');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: true }); // 優化 Context
         const bgCanvas = document.getElementById('bg-lightning-canvas');
-        const bgCtx = bgCanvas.getContext('2d');
+        const bgCtx = bgCanvas.getContext('2d', { alpha: true });
         const bgFlash = document.getElementById('lightning-flash');
         
         let arcs = [];
         let bgBolts = [];
+
+        // ★ 效能優化：更新按鈕邊界緩存 (Resize 時才做)
+        function updateButtonBounds() {
+            buttons.forEach(btn => {
+                const rect = btn.el.getBoundingClientRect();
+                btn.rect = {
+                    left: rect.left,
+                    right: rect.right,
+                    top: rect.top,
+                    bottom: rect.bottom,
+                    width: rect.width,
+                    height: rect.height
+                };
+            });
+        }
 
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             bgCanvas.width = window.innerWidth;
             bgCanvas.height = window.innerHeight;
+            updateButtonBounds(); // 重算位置
         }
         window.addEventListener('resize', resize);
-        resize();
+        
+        // 確保初始載入後也有位置
+        setTimeout(resize, 100); 
 
-        // --- 1. 閃電算法 ---
+        // --- 1. 閃電算法 (手機版降級) ---
         function drawLightningBranch(ctx, x1, y1, x2, y2, displace, width, color) {
-            if (displace < 2) {
+            if (displace < (IS_MOBILE ? 4 : 2)) { // 手機版提早結束遞迴
                 ctx.lineWidth = width;
                 ctx.strokeStyle = color;
                 ctx.beginPath();
@@ -320,14 +352,15 @@
             drawLightningBranch(ctx, x1, y1, midX, midY, displace / 2, width, color);
             drawLightningBranch(ctx, midX, midY, x2, y2, displace / 2, width, color);
             
-            if (Math.random() < 0.3 && width > 0.5) {
+            // 手機版減少額外分枝機率
+            if (Math.random() < (IS_MOBILE ? 0.15 : 0.3) && width > 0.5) {
                 let branchX = midX + (Math.random() - 0.5) * displace * 2;
                 let branchY = midY + (Math.random() * displace);
                 drawLightningBranch(ctx, midX, midY, branchX, branchY, displace / 1.5, width * 0.6, color);
             }
         }
 
-        // --- 2. 背景雷擊 (高頻率) ---
+        // --- 2. 背景雷擊 ---
         class SkyBolt {
             constructor() {
                 this.x = Math.random() * window.innerWidth;
@@ -339,11 +372,15 @@
             }
             draw() {
                 if (this.life > 0) {
-                    bgCtx.shadowBlur = 30;
-                    bgCtx.shadowColor = "#fff";
+                    // ★ 優化：手機版關閉或減少 ShadowBlur
+                    if (!IS_MOBILE) {
+                        bgCtx.shadowBlur = 30;
+                        bgCtx.shadowColor = "#fff";
+                    }
                     bgCtx.globalAlpha = this.opacity;
                     drawLightningBranch(bgCtx, this.x, this.y, this.tx, this.ty, 120, 2.5, "#ffffff");
                     bgCtx.globalAlpha = 1;
+                    bgCtx.shadowBlur = 0; // 重置
                     this.life--;
                     this.opacity -= 0.15;
                 }
@@ -359,59 +396,67 @@
                 this.width = Math.min(3, power / 8);
             }
             draw(ctx) {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = this.color;
+                // ★ 優化：手機版關閉昂貴的光暈，改用線條加粗
+                if (!IS_MOBILE) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = this.color;
+                } else {
+                    ctx.lineWidth = this.width * 1.5; // 手機補償視覺
+                }
                 drawLightningBranch(ctx, this.sx, this.sy, this.tx, this.ty, 40, this.width, this.color);
+                ctx.shadowBlur = 0; // 畫完立刻關閉
                 this.life--;
             }
         }
 
-        // --- 3. 互動核心 (V8 Update) ---
+        // --- 3. 互動核心 (極速版) ---
         function handleInput(x, y) {
-            // 如果正在跳轉中，完全鎖死，不接受任何輸入，也不會進行衰減
             if (state.isRedirecting) return;
             
             const dx = x - state.lastX;
             const dy = y - state.lastY;
             const dist = Math.sqrt(dx*dx + dy*dy);
 
-            const targetEl = document.elementFromPoint(x, y);
-            if (targetEl) {
-                const btnEl = targetEl.closest('.capacitor-btn');
-                if (btnEl) {
-                    const btnData = buttons.find(b => b.el === btnEl);
-                    if (btnData && dist > CONFIG.arcThreshold) {
-                        
-                        // 充能公式
-                        let gain = dist * CONFIG.frictionGain;
-                        btnData.charge += gain;
-                        
-                        // ★ V8 關鍵邏輯：一旦達到 100，直接觸發，不需要等 Frame Loop
-                        if (btnData.charge >= CONFIG.maxCharge) {
-                            btnData.charge = CONFIG.maxCharge;
-                            // 立即觸發過載，不需要放手
-                            triggerOverload(btnData); 
-                            return; // 結束函式，不再做後續處理
-                        }
-
-                        // 產生電弧
-                        const rect = btnEl.getBoundingClientRect();
-                        const tx = rect.left + Math.random() * rect.width;
-                        const ty = rect.top + Math.random() * rect.height;
-                        arcs.push(new Arc(x, y, tx, ty, dist));
-                        
-                        btnData.shake = Math.min(8, dist / 3);
-                    }
+            // ★ 關鍵優化：不再呼叫 document.elementFromPoint
+            // 改用純數學比對 (Hit Test)
+            // 這種方式在 touchmove 高頻觸發下快 100 倍
+            let hitBtn = null;
+            for (let btn of buttons) {
+                if (x >= btn.rect.left && x <= btn.rect.right &&
+                    y >= btn.rect.top && y <= btn.rect.bottom) {
+                    hitBtn = btn;
+                    break;
                 }
             }
+
+            if (hitBtn && dist > CONFIG.arcThreshold) {
+                let gain = dist * CONFIG.frictionGain;
+                hitBtn.charge += gain;
+                
+                if (hitBtn.charge >= CONFIG.maxCharge) {
+                    hitBtn.charge = CONFIG.maxCharge;
+                    triggerOverload(hitBtn); 
+                    return; 
+                }
+
+                // 產生電弧 (隨機點在緩存的 rect 內)
+                const tx = hitBtn.rect.left + Math.random() * hitBtn.rect.width;
+                const ty = hitBtn.rect.top + Math.random() * hitBtn.rect.height;
+                arcs.push(new Arc(x, y, tx, ty, dist));
+                
+                hitBtn.shake = Math.min(8, dist / 3);
+            }
+            
             state.lastX = x; state.lastY = y;
         }
 
         window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
         window.addEventListener('touchmove', e => {
+            // ★ 防止手機瀏覽器預設的下拉刷新或滾動行為
             e.preventDefault();
             handleInput(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
+        
         window.addEventListener('mousedown', e => { state.lastX = e.clientX; state.lastY = e.clientY; });
         window.addEventListener('touchstart', e => { state.lastX = e.touches[0].clientX; state.lastY = e.touches[0].clientY; });
 
@@ -431,7 +476,6 @@
             
             updateBackgroundStorm();
 
-            // 繪製背景雷擊
             for (let i = bgBolts.length - 1; i >= 0; i--) {
                 bgBolts[i].draw();
                 if (bgBolts[i].life <= 0) bgBolts.splice(i, 1);
@@ -439,10 +483,7 @@
 
             // 更新按鈕
             buttons.forEach(btn => {
-                // ★ V8 重點：如果正在跳轉(Redirecting)，這裡完全不執行衰減
-                // 這就實現了您說的「充能與能量消失中間的間隔」——事實上是永久停止消失，直到跳轉。
                 if (state.isRedirecting) {
-                    // 保持過載視覺狀態
                     if (btn.charge >= 100) {
                          btn.fillEl.style.width = '100%';
                          btn.el.style.transform = `scale(1.05)`;
@@ -450,23 +491,26 @@
                     return; 
                 }
 
-                // 正常衰減邏輯 (變慢了)
                 if (btn.charge > 0) {
                     let decay = CONFIG.baseDecay + (btn.charge * 0.005); 
                     if (decay > CONFIG.maxDecay) decay = CONFIG.maxDecay;
-                    
                     btn.charge -= decay;
                     if (btn.charge < 0) btn.charge = 0;
                 }
 
-                // 更新畫面
                 btn.fillEl.style.width = `${btn.charge}%`;
                 btn.textEl.innerText = `${Math.floor(btn.charge)}%`;
                 
-                if (btn.charge > 80) {
+                // CSS 優化：只在必要時修改 DOM
+                const isHighCharge = btn.charge > 80;
+                // 使用 classList 切換比直接操作 style 效能稍好
+                if (isHighCharge && !btn.el.classList.contains('high-charge')) {
+                    btn.el.classList.add('high-charge');
                     btn.el.style.borderColor = "#fff";
-                    btn.el.style.boxShadow = `0 0 ${btn.charge}px rgba(255,255,255,0.4)`;
-                } else {
+                    // 手機版不加 box-shadow
+                    if (!IS_MOBILE) btn.el.style.boxShadow = `0 0 ${btn.charge}px rgba(255,255,255,0.4)`;
+                } else if (!isHighCharge && btn.el.classList.contains('high-charge')) {
+                    btn.el.classList.remove('high-charge');
                     btn.el.style.borderColor = "#4a5568";
                     btn.el.style.boxShadow = "none";
                 }
@@ -476,12 +520,14 @@
                     const dy = (Math.random() - 0.5) * btn.shake;
                     btn.el.style.transform = `translate(${dx}px, ${dy}px)`;
                     btn.shake *= 0.85; 
+                    if (btn.shake < 0.5) btn.shake = 0; // 提早歸零
                 } else {
-                    btn.el.style.transform = `translate(0, 0)`;
+                    // 只有在非 0 且未重置時才寫入 style
+                    if (btn.el.style.transform !== 'translate(0px, 0px)') 
+                        btn.el.style.transform = `translate(0, 0)`;
                 }
             });
 
-            // 繪製游標電弧
             for (let i = arcs.length - 1; i >= 0; i--) {
                 const arc = arcs[i];
                 arc.draw(ctx);
@@ -491,30 +537,24 @@
             requestAnimationFrame(loop);
         }
 
-        // --- 5. 觸發跳轉 (Instant Trigger) ---
+        // --- 5. 觸發跳轉 ---
         function triggerOverload(btnData) {
-            // 防止重複觸發
             if (state.isRedirecting) return;
-            state.isRedirecting = true; // ★ 鎖定系統，禁止衰減
+            state.isRedirecting = true; 
             
-            // 視覺過載 (強制設定)
             btnData.charge = 100;
             btnData.el.classList.add('overload');
             btnData.fillEl.style.width = '100%'; 
             btnData.textEl.innerText = "LAUNCH";
             
-            // 瞬間白屏
             const flash = document.getElementById('flash-layer');
             flash.style.opacity = 1;
             
-            // ★ V8 重點：縮短延遲至 0.1秒 (100ms)，幾乎是瞬間跳轉
+            // 0.1秒瞬間跳轉
             setTimeout(() => {
                 const targetUrl = btnData.el.getAttribute('data-target');
                 window.open(targetUrl, '_blank');
-                
-                // 跳轉後，稍微再等一下才重置，讓使用者回來時感覺是新的開始
                 setTimeout(() => resetSystem(btnData), 500);
-                
             }, 100); 
         }
 
@@ -524,16 +564,16 @@
 
             btnData.charge = 0;
             btnData.el.classList.remove('overload');
+            btnData.el.classList.remove('high-charge'); // 清除高能狀態
             btnData.el.style.transform = `scale(1.0)`;
             btnData.fillEl.style.width = '0%';
             btnData.textEl.innerText = "0%";
             btnData.el.style.borderColor = "#4a5568";
             btnData.el.style.boxShadow = "none";
 
-            state.isRedirecting = false; // 解除鎖定
+            state.isRedirecting = false; 
         }
 
-        // Start
         loop();
 
     </script>
