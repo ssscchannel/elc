@@ -31,7 +31,6 @@
             flex-direction: column;
             color: #fff;
             cursor: crosshair; 
-            /* ★ 關鍵優化：告訴瀏覽器這裡只有觸控操作，優化 scrolling */
             touch-action: none; 
         }
 
@@ -40,7 +39,6 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(to bottom, rgba(10,15,30,0.85), rgba(0,0,0,0.95));
             z-index: 1;
-            /* ★ 優化：使用 GPU 加速合成 */
             transform: translateZ(0);
         }
         
@@ -60,7 +58,7 @@
             pointer-events: none;
             mix-blend-mode: overlay;
             transition: opacity 0.05s ease-out; 
-            will-change: opacity; /* ★ 優化：提示瀏覽器 */
+            will-change: opacity; 
         }
 
         /* --- 3. 標題列 --- */
@@ -97,7 +95,6 @@
             align-items: center;
             gap: 35px;
             padding-top: 40px;
-            /* ★ 優化：避免 UI 重繪影響 Canvas */
             transform: translateZ(0); 
         }
 
@@ -127,13 +124,12 @@
             border-radius: 6px; 
             overflow: hidden;
             cursor: grab;
-            transition: transform 0.05s linear; /* 極短 transition */
+            transition: transform 0.05s linear; 
             display: flex;
             align-items: center;
             justify-content: flex-start; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.8);
             backdrop-filter: blur(8px);
-            /* ★ 優化：將按鈕提升為合成層，避免震動時造成全頁重繪 */
             will-change: transform; 
         }
 
@@ -145,14 +141,13 @@
             z-index: 10;
         }
 
-        /* 能量條 */
         .plasma-fill {
             position: absolute;
             top: 0; left: 0;       
             width: 0%;             
             height: 100%;          
             background: var(--energy-gradient);
-            box-shadow: 0 0 20px var(--neon-blue); /* 手機版降低陰影半徑 */
+            box-shadow: 0 0 20px var(--neon-blue); 
             z-index: 1;
             transition: width 0.05s linear; 
             filter: brightness(1.1);
@@ -160,10 +155,9 @@
             will-change: width;
         }
         
-        /* 過載狀態 */
         .capacitor-btn.overload .plasma-fill {
             background: #fff;
-            filter: brightness(2); /* 移除 drop-shadow 減輕負擔 */
+            filter: brightness(2); 
             width: 100% !important;
         }
 
@@ -249,7 +243,7 @@
 
     <script>
         // =========================================================
-        // 晟自然 - 雷電實驗室 V9 (Mobile Performance Optimization)
+        // 晟自然 - 雷電實驗室 V10 (The Root Cure - Secure Navigation)
         // =========================================================
 
         const CONFIG = {
@@ -260,7 +254,6 @@
             maxCharge: 100
         };
         
-        // ★ 優化：判斷是否為移動裝置 (螢幕小於 768px 視為手機)
         const IS_MOBILE = window.innerWidth < 768;
 
         const buttons = [
@@ -270,7 +263,6 @@
                 fillEl: document.getElementById('btn-A').querySelector('.plasma-fill'),
                 textEl: document.getElementById('btn-A').querySelector('.voltage-readout'),
                 shake: 0,
-                // ★ 優化：緩存邊界，避免每次 elementFromPoint
                 rect: { left:0, right:0, top:0, bottom:0 } 
             },
             { 
@@ -298,7 +290,7 @@
         };
 
         const canvas = document.getElementById('canvas-layer');
-        const ctx = canvas.getContext('2d', { alpha: true }); // 優化 Context
+        const ctx = canvas.getContext('2d', { alpha: true }); 
         const bgCanvas = document.getElementById('bg-lightning-canvas');
         const bgCtx = bgCanvas.getContext('2d', { alpha: true });
         const bgFlash = document.getElementById('lightning-flash');
@@ -306,17 +298,13 @@
         let arcs = [];
         let bgBolts = [];
 
-        // ★ 效能優化：更新按鈕邊界緩存 (Resize 時才做)
         function updateButtonBounds() {
             buttons.forEach(btn => {
                 const rect = btn.el.getBoundingClientRect();
                 btn.rect = {
-                    left: rect.left,
-                    right: rect.right,
-                    top: rect.top,
-                    bottom: rect.bottom,
-                    width: rect.width,
-                    height: rect.height
+                    left: rect.left, right: rect.right,
+                    top: rect.top, bottom: rect.bottom,
+                    width: rect.width, height: rect.height
                 };
             });
         }
@@ -326,16 +314,14 @@
             canvas.height = window.innerHeight;
             bgCanvas.width = window.innerWidth;
             bgCanvas.height = window.innerHeight;
-            updateButtonBounds(); // 重算位置
+            updateButtonBounds(); 
         }
         window.addEventListener('resize', resize);
-        
-        // 確保初始載入後也有位置
         setTimeout(resize, 100); 
 
-        // --- 1. 閃電算法 (手機版降級) ---
+        // --- 1. 閃電算法 ---
         function drawLightningBranch(ctx, x1, y1, x2, y2, displace, width, color) {
-            if (displace < (IS_MOBILE ? 4 : 2)) { // 手機版提早結束遞迴
+            if (displace < (IS_MOBILE ? 4 : 2)) { 
                 ctx.lineWidth = width;
                 ctx.strokeStyle = color;
                 ctx.beginPath();
@@ -352,7 +338,6 @@
             drawLightningBranch(ctx, x1, y1, midX, midY, displace / 2, width, color);
             drawLightningBranch(ctx, midX, midY, x2, y2, displace / 2, width, color);
             
-            // 手機版減少額外分枝機率
             if (Math.random() < (IS_MOBILE ? 0.15 : 0.3) && width > 0.5) {
                 let branchX = midX + (Math.random() - 0.5) * displace * 2;
                 let branchY = midY + (Math.random() * displace);
@@ -372,7 +357,6 @@
             }
             draw() {
                 if (this.life > 0) {
-                    // ★ 優化：手機版關閉或減少 ShadowBlur
                     if (!IS_MOBILE) {
                         bgCtx.shadowBlur = 30;
                         bgCtx.shadowColor = "#fff";
@@ -380,7 +364,7 @@
                     bgCtx.globalAlpha = this.opacity;
                     drawLightningBranch(bgCtx, this.x, this.y, this.tx, this.ty, 120, 2.5, "#ffffff");
                     bgCtx.globalAlpha = 1;
-                    bgCtx.shadowBlur = 0; // 重置
+                    bgCtx.shadowBlur = 0; 
                     this.life--;
                     this.opacity -= 0.15;
                 }
@@ -396,20 +380,19 @@
                 this.width = Math.min(3, power / 8);
             }
             draw(ctx) {
-                // ★ 優化：手機版關閉昂貴的光暈，改用線條加粗
                 if (!IS_MOBILE) {
                     ctx.shadowBlur = 15;
                     ctx.shadowColor = this.color;
                 } else {
-                    ctx.lineWidth = this.width * 1.5; // 手機補償視覺
+                    ctx.lineWidth = this.width * 1.5; 
                 }
                 drawLightningBranch(ctx, this.sx, this.sy, this.tx, this.ty, 40, this.width, this.color);
-                ctx.shadowBlur = 0; // 畫完立刻關閉
+                ctx.shadowBlur = 0; 
                 this.life--;
             }
         }
 
-        // --- 3. 互動核心 (極速版) ---
+        // --- 3. 互動核心 ---
         function handleInput(x, y) {
             if (state.isRedirecting) return;
             
@@ -417,9 +400,6 @@
             const dy = y - state.lastY;
             const dist = Math.sqrt(dx*dx + dy*dy);
 
-            // ★ 關鍵優化：不再呼叫 document.elementFromPoint
-            // 改用純數學比對 (Hit Test)
-            // 這種方式在 touchmove 高頻觸發下快 100 倍
             let hitBtn = null;
             for (let btn of buttons) {
                 if (x >= btn.rect.left && x <= btn.rect.right &&
@@ -439,7 +419,6 @@
                     return; 
                 }
 
-                // 產生電弧 (隨機點在緩存的 rect 內)
                 const tx = hitBtn.rect.left + Math.random() * hitBtn.rect.width;
                 const ty = hitBtn.rect.top + Math.random() * hitBtn.rect.height;
                 arcs.push(new Arc(x, y, tx, ty, dist));
@@ -452,7 +431,6 @@
 
         window.addEventListener('mousemove', e => handleInput(e.clientX, e.clientY));
         window.addEventListener('touchmove', e => {
-            // ★ 防止手機瀏覽器預設的下拉刷新或滾動行為
             e.preventDefault();
             handleInput(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
@@ -481,7 +459,6 @@
                 if (bgBolts[i].life <= 0) bgBolts.splice(i, 1);
             }
 
-            // 更新按鈕
             buttons.forEach(btn => {
                 if (state.isRedirecting) {
                     if (btn.charge >= 100) {
@@ -501,13 +478,10 @@
                 btn.fillEl.style.width = `${btn.charge}%`;
                 btn.textEl.innerText = `${Math.floor(btn.charge)}%`;
                 
-                // CSS 優化：只在必要時修改 DOM
                 const isHighCharge = btn.charge > 80;
-                // 使用 classList 切換比直接操作 style 效能稍好
                 if (isHighCharge && !btn.el.classList.contains('high-charge')) {
                     btn.el.classList.add('high-charge');
                     btn.el.style.borderColor = "#fff";
-                    // 手機版不加 box-shadow
                     if (!IS_MOBILE) btn.el.style.boxShadow = `0 0 ${btn.charge}px rgba(255,255,255,0.4)`;
                 } else if (!isHighCharge && btn.el.classList.contains('high-charge')) {
                     btn.el.classList.remove('high-charge');
@@ -520,9 +494,8 @@
                     const dy = (Math.random() - 0.5) * btn.shake;
                     btn.el.style.transform = `translate(${dx}px, ${dy}px)`;
                     btn.shake *= 0.85; 
-                    if (btn.shake < 0.5) btn.shake = 0; // 提早歸零
+                    if (btn.shake < 0.5) btn.shake = 0; 
                 } else {
-                    // 只有在非 0 且未重置時才寫入 style
                     if (btn.el.style.transform !== 'translate(0px, 0px)') 
                         btn.el.style.transform = `translate(0, 0)`;
                 }
@@ -537,7 +510,7 @@
             requestAnimationFrame(loop);
         }
 
-        // --- 5. 觸發跳轉 ---
+        // --- 5. 觸發與重置邏輯 (The Fix) ---
         function triggerOverload(btnData) {
             if (state.isRedirecting) return;
             state.isRedirecting = true; 
@@ -550,28 +523,40 @@
             const flash = document.getElementById('flash-layer');
             flash.style.opacity = 1;
             
-            // 0.1秒瞬間跳轉
+            // ★ 根治方案：改用 location.href (原頁面跳轉)
+            // 這能繞過所有瀏覽器的彈窗攔截，手機端體驗最穩定
             setTimeout(() => {
                 const targetUrl = btnData.el.getAttribute('data-target');
-                window.open(targetUrl, '_blank');
-                setTimeout(() => resetSystem(btnData), 500);
+                window.location.href = targetUrl;
             }, 100); 
         }
 
-        function resetSystem(btnData) {
-            const flash = document.getElementById('flash-layer');
-            flash.style.opacity = 0;
+        // ★ 新增：當使用者按「上一頁」回來時，自動重置系統
+        // 這是配合 location.href 的關鍵配套，讓使用者可以重新充電
+        window.addEventListener('pageshow', function(event) {
+            // 如果頁面是從快取中恢復 (bfcache)，或者單純重新顯示
+            if (state.isRedirecting) {
+                // 強制重置所有按鈕
+                buttons.forEach(btn => resetSystem(btn));
+                
+                // 確保白光消失
+                const flash = document.getElementById('flash-layer');
+                flash.style.opacity = 0;
+                
+                state.isRedirecting = false;
+            }
+        });
 
+        function resetSystem(btnData) {
             btnData.charge = 0;
+            btnData.shake = 0;
             btnData.el.classList.remove('overload');
-            btnData.el.classList.remove('high-charge'); // 清除高能狀態
+            btnData.el.classList.remove('high-charge');
             btnData.el.style.transform = `scale(1.0)`;
             btnData.fillEl.style.width = '0%';
             btnData.textEl.innerText = "0%";
             btnData.el.style.borderColor = "#4a5568";
             btnData.el.style.boxShadow = "none";
-
-            state.isRedirecting = false; 
         }
 
         loop();
