@@ -20,7 +20,9 @@
             margin: 0;
             padding: 0;
             width: 100vw;
+            /* FIX: 使用 dvh 解決手機瀏覽器工具列遮擋問題，fallback 為 vh */
             height: 100vh;
+            height: 100dvh; 
             background-image: url('page.jpg');
             background-size: cover;
             background-position: center;
@@ -85,7 +87,7 @@
             transform: translateX(-50%) scale(1.05);
         }
 
-        /* --- 4. Footer --- */
+        /* --- 4. Footer & Controls --- */
         .control-deck {
             flex: 0 0 var(--footer-h);
             background: rgba(255, 255, 255, 0.98);
@@ -104,6 +106,7 @@
             padding: 6px;
             border-radius: 100px;
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.06);
+            align-items: center; /* 確保垂直置中 */
         }
 
         .btn-toggle {
@@ -124,8 +127,37 @@
         .btn-toggle:active { transform: scale(0.95); }
         .btn-toggle.active-neg { background: #3498db; color: white; box-shadow: 0 4px 12px rgba(52, 152, 219, 0.5); }
         .btn-toggle.active-pos { background: #e74c3c; color: white; box-shadow: 0 4px 12px rgba(231, 76, 60, 0.5); }
-        .deck-label { font-size: 0.95rem; font-weight: 700; color: #666; }
+        
+        .deck-label { font-size: 0.95rem; font-weight: 700; color: #666; margin-right: 5px; }
 
+        /* FIX: 內嵌式 Home Button 樣式 */
+        .divider { width: 1px; height: 30px; background: #ccc; margin: 0 10px; }
+        
+        .btn-home {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #7f8c8d;
+            font-size: 1.4rem;
+            transition: all 0.2s ease;
+        }
+        .btn-home:hover { background: #e0e0e0; color: #2c3e50; }
+        .btn-home:active { transform: scale(0.9); }
+
+        /* FIX: 手機版適配調整 */
+        @media (max-width: 600px) {
+            h1 { font-size: 1rem; }
+            .control-deck { gap: 10px; }
+            .btn-toggle { width: 60px; height: 45px; font-size: 1.4rem; }
+            .switch-capsule { padding: 4px; }
+            .deck-label { font-size: 0.85rem; }
+            .divider { margin: 0 5px; }
+            .btn-home { width: 45px; height: 45px; font-size: 1.2rem; }
+        }
     </style>
 </head>
 <body>
@@ -143,21 +175,22 @@
     </div>
 
     <div class="control-deck">
-        <span class="deck-label">帶電棒：</span>
         <div class="switch-capsule">
+            <span class="deck-label" style="padding-left: 10px;">帶電棒</span>
             <button class="btn-toggle active-neg" id="btnNeg" onclick="APP.setRod(-1)">－</button>
             <button class="btn-toggle" id="btnPos" onclick="APP.setRod(1)">＋</button>
+            
+            <div class="divider"></div>
+            <a href="index.html" class="btn-home" title="返回實驗室">
+                ↩
+            </a>
         </div>
     </div>
 
 <script>
 /**
  * V15 Physics Engine (Tip-Centric Boundary & Init Polish)
- * 1. Boundary: "Tip Locking Algorithm". Only the tip is clamped to screen rect. 
- * This ensures perfect consistency at corners and edges. Rod body can go off-screen.
- * 2. Init: Rod placed visibly (85% of screen) but outside induction range.
- * 3. Range: Maintained at 160.
- * 4. Sync: Maintained strict V14 synchronization logic.
+ * 內容與原版一致，僅保留物理邏輯
  */
 const APP = {
     canvas: null,
@@ -232,8 +265,6 @@ const APP = {
 
         this.initParticles();
 
-        // ★ V15: 初始位置優化
-        // 設定在畫面右下角內縮處，看得見，但距離足夠遠，不會觸發感應。
         if (this.rod.x === 0) {
             this.rod.x = this.width * 0.85; 
             this.rod.y = this.height * 0.85;
@@ -262,31 +293,26 @@ const APP = {
     },
 
     update: function() {
-        // 1. 棒子幾何
         let dxRod = this.conductor.x - this.rod.x;
         let dyRod = this.conductor.y - this.rod.y;
         this.rod.angle = Math.atan2(dyRod, dxRod); 
 
-        // 棒頭位置
         let halfL = this.rodSize.L / 2;
         let tipX = this.rod.x + Math.cos(this.rod.angle) * halfL;
         let tipY = this.rod.y + Math.sin(this.rod.angle) * halfL;
 
-        // 2. 感應強度計算
         let distToCenter = Math.sqrt(dxRod*dxRod + dyRod*dyRod);
         let surfaceDist = distToCenter - this.conductor.r - halfL;
         let maxEffectDist = this.CONFIG.inductionThreshold;
         
         if (surfaceDist < 0) surfaceDist = 0;
         
-        // 計算感應等級
         if (surfaceDist > maxEffectDist) {
             this.state.inductionLevel = 0;
         } else {
             this.state.inductionLevel = 1 - (surfaceDist / maxEffectDist);
         }
 
-        // 3. 同步 UI
         const isInducting = this.state.inductionLevel > 0;
         const infoTag = document.getElementById('infoTag');
         
@@ -301,11 +327,9 @@ const APP = {
         const pR = this.CONFIG.particleSize;
         const scale = this.width / 400;
 
-        // 4. 粒子物理
         this.particles.forEach((p, i) => {
             let fx = 0, fy = 0;
 
-            // 棒子力
             let dx = p.x - tipX;
             let dy = p.y - tipY;
             let distSq = dx*dx + dy*dy;
@@ -314,13 +338,11 @@ const APP = {
             let rodF = (this.CONFIG.k_rod * scale) / distSq;
             let dist = Math.sqrt(distSq);
 
-            // 無感應時歸零
             if (!isInducting) rodF = 0;
 
             if (isRepel) { fx += (dx / dist) * rodF; fy += (dy / dist) * rodF; }
             else { fx -= (dx / dist) * rodF; fy -= (dy / dist) * rodF; }
 
-            // 互斥力
             this.particles.forEach((other, j) => {
                 if (i === j) return;
                 let odx = p.x - other.x;
@@ -333,7 +355,6 @@ const APP = {
                 fy += (ody / od) * repF;
             });
 
-            // 運動更新
             p.vx = (p.vx + fx) * this.CONFIG.damping;
             p.vy = (p.vy + fy) * this.CONFIG.damping;
             if (Math.abs(p.vx) < 0.1) p.vx = 0;
@@ -341,7 +362,6 @@ const APP = {
             let nextX = p.x + p.vx;
             let nextY = p.y + p.vy;
 
-            // 邊界
             let cdx = nextX - this.conductor.x;
             let cdy = nextY - this.conductor.y;
             let cDist = Math.sqrt(cdx*cdx + cdy*cdy);
@@ -356,7 +376,6 @@ const APP = {
                 p.x = nextX; p.y = nextY;
             }
 
-            // 防重疊
             this.particles.forEach((other, j) => {
                 if (i === j) return;
                 let dX = p.x - other.x;
@@ -382,11 +401,9 @@ const APP = {
 
     drawConductor: function() {
         const {x, y, r} = this.conductor;
-        // 絕緣柱
         this.ctx.fillStyle = '#95a5a6';
         this.ctx.fillRect(x - 8, y + r - 2, 16, this.height);
         
-        // 金屬球
         this.ctx.beginPath();
         this.ctx.arc(x, y, r, 0, Math.PI*2);
         let grad = this.ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.1, x, y, r);
@@ -395,7 +412,6 @@ const APP = {
         this.ctx.fillStyle = grad;
         this.ctx.fill();
 
-        // 感應色塊
         if (this.state.inductionLevel > 0) {
             let opacity = this.state.inductionLevel * 0.3; 
             let angleToRod = Math.atan2(this.rod.y - y, this.rod.x - x);
@@ -416,7 +432,6 @@ const APP = {
             this.ctx.fill();
             this.ctx.restore();
 
-            // 文字標籤
             if (this.state.inductionLevel > 0.1) {
                 this.ctx.save();
                 const txtColorPos = '#c0392b';
@@ -451,7 +466,6 @@ const APP = {
             }
         }
 
-        // 外框
         this.ctx.beginPath();
         this.ctx.arc(x, y, r, 0, Math.PI*2);
         this.ctx.lineWidth = 2;
@@ -486,7 +500,6 @@ const APP = {
         const chargeColor = this.rod.charge < 0 ? '#3498db' : '#e74c3c';
         const symbol = this.rod.charge < 0 ? '-' : '+';
         
-        // 棒身
         this.ctx.fillStyle = (this.rod.charge < 0) ? '#34495e' : 'rgba(236, 240, 241, 0.95)';
         this.ctx.beginPath();
         this.ctx.roundRect(-L/2, -W/2, L, W, W/2);
@@ -495,7 +508,6 @@ const APP = {
         this.ctx.lineWidth = 1;
         this.ctx.stroke();
 
-        // 棒頭
         const headX = L/2 - W/2;
         const headR = W * 0.8;
         this.ctx.beginPath();
@@ -512,7 +524,6 @@ const APP = {
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(symbol, headX, 2);
 
-        // 握把
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.fillRect(-L/2, -W/2, 40, W); 
         this.ctx.strokeStyle = '#555';
@@ -573,30 +584,20 @@ const APP = {
     },
 
     updateRodPos: function(targetX, targetY) {
-        // ★ V15: 棒頭優先的逆向運動學限制 (Tip-Centric Boundary)
-        // 1. 計算角度 (棒子永遠指向導體)
         let dxRod = this.conductor.x - targetX;
         let dyRod = this.conductor.y - targetY;
         let angle = Math.atan2(dyRod, dxRod);
 
-        // 2. 計算「虛擬棒頭位置」
-        // 假設棒子中心在 targetX, targetY，那棒頭會在哪？
         let halfL = this.rodSize.L / 2;
         let tipX = targetX + Math.cos(angle) * halfL;
         let tipY = targetY + Math.sin(angle) * halfL;
 
-        // 3. 強制鉗制棒頭 (Clamp Tip)
-        // 我們不限制中心，而是嚴格限制「棒頭中心點」必須在畫面矩形內。
-        // 這保證了無論在邊緣還是角落，棒頭那一半永遠看得到。
         tipX = Math.max(0, Math.min(this.width, tipX));
         tipY = Math.max(0, Math.min(this.height, tipY));
 
-        // 4. 逆向推導棒子中心
-        // 根據被限制住的棒頭，反算棒子中心應該在哪
         this.rod.x = tipX - Math.cos(angle) * halfL;
         this.rod.y = tipY - Math.sin(angle) * halfL;
 
-        // 5. 碰撞檢測 (維持原有邏輯，防止穿入導體)
         let finalDx = this.conductor.x - this.rod.x;
         let finalDy = this.conductor.y - this.rod.y;
         let dist = Math.sqrt(finalDx*finalDx + finalDy*finalDy);

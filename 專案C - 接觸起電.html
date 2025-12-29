@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>晟自然輔助系統　接觸起電</title>
+    <title>晟自然 - 接觸起電</title>
     
     <style>
         /* --- 1. 全局定義 --- */
@@ -20,7 +20,9 @@
             margin: 0;
             padding: 0;
             width: 100vw;
+            /* FIX: Mobile Viewport Height */
             height: 100vh;
+            height: 100dvh;
             background-image: url('page.jpg');
             background-size: cover;
             background-position: center;
@@ -138,6 +140,33 @@
         .btn-toggle.active-pos { background: #e74c3c; color: white; box-shadow: 0 4px 12px rgba(231, 76, 60, 0.5); }
         
         .deck-label { font-size: 0.9rem; font-weight: 700; color: #666; margin-right: 8px;}
+		
+        /* FIX: Home Button & Mobile */
+        .btn-home {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #7f8c8d;
+            font-size: 1.4rem;
+            transition: all 0.2s ease;
+        }
+        .btn-home:hover { background: #e0e0e0; color: #2c3e50; }
+        .btn-home:active { transform: scale(0.9); }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1rem; }
+            .control-deck { gap: 10px; }
+            .switch-capsule { padding: 4px; }
+            .deck-label { display: none; }
+            .btn-toggle { width: 50px; height: 45px; font-size: 1.2rem; }
+            .btn-text { font-size: 0.85rem; padding: 0 10px; }
+            .divider { margin: 0 5px; }
+            .btn-home { width: 45px; height: 45px; }
+        }
 
     </style>
 </head>
@@ -166,20 +195,19 @@
             <button class="btn-toggle btn-text" style="font-size:0.9rem; color:#e74c3c" onclick="APP.reset()">
                 ↺ 重置
             </button>
+            
+            <div class="divider"></div>
+            <a href="index.html" class="btn-home" title="返回實驗室">
+                ↩
+            </a>
         </div>
     </div>
 
 <script>
 /**
- * Project C: Contact Electrification (V29 - Numeric Equalization)
- * Engineer: Sheng Nature AI
- * * * * CHANGELOG V29:
- * 1. [UI Update] Removed Chinese text from Rod. Increased Charge Count size for clarity.
- * 2. [Feature: Sphere Stats] Added dynamic Net Charge display to the center of the Sphere.
- * - Logic: Net = 4 (Protons) - ElectronCount.
- * - Visual: -4, 0, +4. Updates in real-time as particles transfer.
+ * Project C: Contact Electrification (V29)
+ * Logic consistent with original.
  */
-
 const APP = {
     canvas: null,
     ctx: null,
@@ -741,11 +769,6 @@ const APP = {
         this.ctx.strokeStyle = '#95a5a6';
         this.ctx.stroke();
 
-        // V29: Draw Net Charge Number in Center of Sphere
-        // Logic: 4 protons - X electrons. 
-        // 4 - 4 = 0 (Neutral)
-        // 4 - 8 = -4 (Neg)
-        // 4 - 0 = +4 (Pos)
         let netCharge = 4 - this.particles.length;
         let displayStr = (netCharge > 0 ? "+" : "") + netCharge;
         if (netCharge === 0) displayStr = "0";
@@ -755,9 +778,9 @@ const APP = {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
-        if (netCharge === 0) this.ctx.fillStyle = 'rgba(127, 140, 141, 0.3)'; // Grey (Neutral)
-        else if (netCharge > 0) this.ctx.fillStyle = 'rgba(231, 76, 60, 0.3)'; // Red (Pos)
-        else this.ctx.fillStyle = 'rgba(52, 152, 219, 0.3)'; // Blue (Neg)
+        if (netCharge === 0) this.ctx.fillStyle = 'rgba(127, 140, 141, 0.3)'; 
+        else if (netCharge > 0) this.ctx.fillStyle = 'rgba(231, 76, 60, 0.3)'; 
+        else this.ctx.fillStyle = 'rgba(52, 152, 219, 0.3)'; 
         
         this.ctx.fillText(displayStr, x, y);
     },
@@ -806,7 +829,6 @@ const APP = {
         const chargeColor = this.rod.charge < 0 ? '#3498db' : '#e74c3c';
         const symbol = this.rod.charge < 0 ? '-' : '+';
         
-        // Body 
         this.ctx.fillStyle = (this.rod.charge < 0) ? '#34495e' : '#ecf0f1';
         this.ctx.beginPath();
         
@@ -827,7 +849,6 @@ const APP = {
         this.ctx.lineWidth = 1;
         this.ctx.stroke();
 
-        // Tip 
         const headX = L/2 - W/2; 
         const headR = W * 0.8;
         this.ctx.beginPath();
@@ -838,7 +859,6 @@ const APP = {
         this.ctx.lineWidth = 4;
         this.ctx.stroke();
 
-        // Symbol & Count (V29: Cleaner Look)
         this.ctx.save();
         this.ctx.translate(headX, 0); 
         this.ctx.rotate(-this.rod.angle); 
@@ -846,17 +866,14 @@ const APP = {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
-        // Dynamic Charge Count
         let displayNum = this.rod.load;
         let displaySymbol = (this.rod.charge < 0) ? "-" : "+";
         
-        // V29: Larger font, no "Charge" text
         this.ctx.font = 'bold 26px Arial';
         this.ctx.fillText(displaySymbol + displayNum, 0, 1); 
 
         this.ctx.restore(); 
 
-        // Grip
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.fillRect(-L/2, -W/2, 40, W); 
         
